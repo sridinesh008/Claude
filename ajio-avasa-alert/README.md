@@ -11,7 +11,7 @@ Scrapes AJIO for AVAASA brand deals and stores the results in `deals.txt`. When 
 
 ## Requirements
 - Python 3.12+
-- Playwright (Chromium)
+- Playwright with the Chrome browser (`playwright install chrome --with-deps`)
 
 ## Setup
 From the `ajio-avasa-alert` folder:
