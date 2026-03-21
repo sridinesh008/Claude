@@ -26,7 +26,7 @@ Create a `config.json` file in the `ajio-avasa-alert` folder (same directory as 
 
 ```json
 {
-  "brand": "avasa",
+  "brand": "AVAASA",
   "min_discount_pct": 70,
   "size": "L",
   "telegram_bot_token": "YOUR_BOT_TOKEN",
@@ -35,7 +35,7 @@ Create a `config.json` file in the `ajio-avasa-alert` folder (same directory as 
 ```
 
 **Fields:**
-- `brand` (string): Brand name used in the log output. The search query is fixed to AVAASA brands in the code.
+- `brand` (string): Display-only brand name used in log output. The search query is hardcoded to AVAASA brands in the scraper.
 - `min_discount_pct` (number): Minimum discount percentage to keep a product.
 - `size` (string, optional): AJIO size filter (for example: `S`, `M`, `L`, `XL`). Leave empty for all sizes.
 - `telegram_bot_token` (string, optional): Bot token to send notifications. Leave blank to disable.
