@@ -31,7 +31,7 @@ jobs:
 
       - name: Write config from secrets
         run: |
-          cat > config.json <<EOF
+          cat > ajio-avasa-alert/config.json <<EOF
           {
             "brand": "avasa",
             "min_discount_pct": 70,
