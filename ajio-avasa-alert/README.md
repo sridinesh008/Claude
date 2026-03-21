@@ -14,6 +14,7 @@ Scrapes AJIO for AVAASA brand deals and stores the results in `deals.txt`. When 
 - Playwright with the Chrome browser (`playwright install chrome --with-deps`)
 
 ## Setup
+
 From the `ajio-avasa-alert` folder:
 
 ```bash
@@ -22,7 +23,8 @@ playwright install chrome --with-deps
 ```
 
 ## Configuration
-Create a `config.json` file in the `ajio-avasa-alert` folder (same directory as `scraper.py`).
+
+Create a `config.json` file in the project folder (same directory as `scraper.py`).
 
 ```json
 {
@@ -54,6 +56,7 @@ Outputs:
 - `images/`: downloaded product images (created on demand).
 
 ### Headed vs Headless
+
 The scraper defaults to headless mode. To run with a visible browser window:
 
 ```bash
@@ -61,18 +64,53 @@ HEADLESS=false python scraper.py
 ```
 
 ## GitHub Actions
+
 The workflow file is at `.github/workflows/scraper.yml` and runs every 30 minutes.
 
 **Required repository secrets:**
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_IDS` (JSON array, e.g. `["123456789"]`)
 
-The workflow writes `config.json` from secrets, runs the scraper, and commits changes to `deals.txt`.
+The workflow writes `config.json` from secrets using `jq` (safe for tokens with special characters), runs the scraper, and commits changes to `deals.txt`.
 
-## Testing
-There are currently no automated tests or linting configured for this project.
+A separate **lint workflow** (`.github/workflows/lint.yml`) runs `ruff` and `mypy` on every push and pull request.
+
+## Development
+
+Install dev dependencies:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+Run linting and formatting:
+
+```bash
+ruff check scraper.py tests/
+ruff format scraper.py tests/
+```
+
+Run type checking:
+
+```bash
+mypy scraper.py
+```
+
+Run tests:
+
+```bash
+pytest
+```
+
+### Pre-commit hooks
+
+```bash
+pip install pre-commit
+pre-commit install
+```
 
 ## Troubleshooting
+
 - **`config.json` not found:** Ensure it exists in the same directory as `scraper.py`.
 - **Playwright errors:** Re-run `playwright install chrome --with-deps`.
 - **No Telegram messages:** Verify the bot token and chat IDs, or leave them blank to disable notifications.

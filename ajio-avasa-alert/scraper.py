@@ -1,10 +1,11 @@
+import datetime
 import json
+import os
 import pathlib
+import random
 import re
 import sys
 import time
-import random
-import datetime
 import urllib.parse
 
 import requests
@@ -34,7 +35,6 @@ def scrape_ajio(brand: str, size: str = "") -> list[dict]:
     all_products = []
 
     with sync_playwright() as p:
-        import os
         headless = os.environ.get("HEADLESS", "true").lower() != "false"
         browser = p.chromium.launch(
             headless=headless,

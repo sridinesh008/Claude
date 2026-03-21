@@ -5,6 +5,14 @@ on:
     - cron: "*/30 * * * *"   # every 30 minutes
   workflow_dispatch:          # allow manual trigger from GitHub UI
 
+# Prevent parallel runs — queue a new run instead of cancelling the active one
+concurrency:
+  group: scrape
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # needed to commit deals.txt
+
 jobs:
   scrape:
     runs-on: ubuntu-latest
@@ -30,17 +38,21 @@ jobs:
         run: playwright install chrome --with-deps
 
       - name: Write config from secrets
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
         run: |
-          cat > config.json <<EOF
-          {
-            "brand": "avasa",
-            "min_discount_pct": 70,
-            "size": "L",
-            "notify_if_no_results": false,
-            "telegram_bot_token": "${{ secrets.TELEGRAM_BOT_TOKEN }}",
-            "telegram_chat_ids": ${{ secrets.TELEGRAM_CHAT_IDS }}
-          }
-          EOF
+          jq -n \
+            --arg token "$TELEGRAM_BOT_TOKEN" \
+            --argjson chat_ids "$TELEGRAM_CHAT_IDS" \
+            '{
+              brand: "avasa",
+              min_discount_pct: 70,
+              size: "L",
+              notify_if_no_results: false,
+              telegram_bot_token: $token,
+              telegram_chat_ids: $chat_ids
+            }' > config.json
 
       - name: Run scraper
         run: python scraper.py
