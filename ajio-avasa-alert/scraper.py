@@ -251,6 +251,19 @@ def download_images(products: list[dict]):
 OUTPUT_FILE = pathlib.Path(__file__).parent / "deals.txt"
 
 
+def load_known_urls() -> set[str]:
+    """Read URLs from existing deals.txt to detect already-seen products."""
+    if not OUTPUT_FILE.exists():
+        return set()
+    known = set()
+    for line in OUTPUT_FILE.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line.startswith("https://"):
+            known.add(line)
+    log(f"Known URLs from previous run: {len(known)}")
+    return known
+
+
 def save_to_file(products: list[dict], min_pct: int):
     today = datetime.date.today().strftime("%d %b %Y")
     lines = [
@@ -391,16 +404,22 @@ def main():
     deals = filter_products(all_products, min_pct)
     log(f"Products with {min_pct}%+ discount: {len(deals)}")
 
+    # Find products not seen in the previous run
+    known_urls = load_known_urls()
+    new_deals = [p for p in deals if p["url"] not in known_urls]
+    log(f"New deals (not in previous run): {len(new_deals)}")
+
+    # Always save full current list so next run can diff against it
     save_to_file(deals, min_pct)
 
     token = cfg.get("telegram_bot_token", "")
     chat_ids = cfg.get("telegram_chat_ids", [])
-    if not deals:
-        log("No deals found — skipping notification.")
+    if not new_deals:
+        log("No new deals — skipping notification.")
     elif token and "YOUR_BOT_TOKEN" not in token and chat_ids:
         for chat_id in chat_ids:
             log(f"Sending to chat_id {chat_id}...")
-            send_telegram_all(token, chat_id, deals, min_pct)
+            send_telegram_all(token, chat_id, new_deals, min_pct)
     else:
         log("Telegram not configured — skipping notification.")
 
