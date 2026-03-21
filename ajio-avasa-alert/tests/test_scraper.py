@@ -2,7 +2,7 @@
 
 import pytest
 
-from scraper import extract_product_code, filter_products, format_product_message
+from scraper import BRAND_CONFIGS, extract_product_code, filter_products, format_product_message, save_to_file
 
 
 def make_product(**overrides) -> dict:
@@ -78,3 +78,55 @@ class TestFormatProductMessage:
         p = make_product(url="https://www.ajio.com/search/")
         msg = format_product_message(p, index=1, total=5, min_pct=70)
         assert "Open in App" not in msg
+
+
+class TestBrandConfigs:
+    def test_all_required_brands_present(self):
+        for brand in BRAND_CONFIGS.keys():
+            assert brand in BRAND_CONFIGS, f"Brand '{brand}' missing from BRAND_CONFIGS"
+
+    def test_expected_brands_included(self):
+        for brand in ("avasa", "dnmx", "fig", "rio"):
+            assert brand in BRAND_CONFIGS, f"Expected brand '{brand}' not found in BRAND_CONFIGS"
+
+    def test_each_brand_has_text_and_filters(self):
+        for brand, cfg in BRAND_CONFIGS.items():
+            assert "text" in cfg, f"Brand '{brand}' missing 'text'"
+            assert "brand_filters" in cfg, f"Brand '{brand}' missing 'brand_filters'"
+            assert isinstance(cfg["brand_filters"], list), f"Brand '{brand}' brand_filters must be a list"
+            assert len(cfg["brand_filters"]) >= 1, f"Brand '{brand}' brand_filters must not be empty"
+
+    def test_avasa_has_two_filters(self):
+        filters = BRAND_CONFIGS["avasa"]["brand_filters"]
+        assert "AVAASA SET" in filters
+        assert "AVAASA MIX N' MATCH" in filters
+
+    def test_dnmx_config(self):
+        assert BRAND_CONFIGS["dnmx"]["text"] == "dnmx"
+        assert "DNMX" in BRAND_CONFIGS["dnmx"]["brand_filters"]
+
+    def test_fig_config(self):
+        assert BRAND_CONFIGS["fig"]["text"] == "fig"
+        assert "FIG" in BRAND_CONFIGS["fig"]["brand_filters"]
+
+    def test_rio_config(self):
+        assert BRAND_CONFIGS["rio"]["text"] == "rio"
+        assert "RIO" in BRAND_CONFIGS["rio"]["brand_filters"]
+
+
+class TestSaveToFile:
+    def test_label_appears_in_output(self, tmp_path, monkeypatch):
+        import scraper
+        monkeypatch.setattr(scraper, "OUTPUT_FILE", tmp_path / "deals.txt")
+        products = [make_product()]
+        save_to_file(products, min_pct=70, label="AVASA, DNMX, FIG, RIO")
+        content = (tmp_path / "deals.txt").read_text(encoding="utf-8")
+        assert "AVASA, DNMX, FIG, RIO" in content
+
+    def test_default_label(self, tmp_path, monkeypatch):
+        import scraper
+        monkeypatch.setattr(scraper, "OUTPUT_FILE", tmp_path / "deals.txt")
+        products = [make_product()]
+        save_to_file(products, min_pct=70)
+        content = (tmp_path / "deals.txt").read_text(encoding="utf-8")
+        assert "Avasa" in content
