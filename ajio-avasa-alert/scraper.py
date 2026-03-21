@@ -20,6 +20,27 @@ CONFIG_FILE = pathlib.Path(__file__).parent / "config.json"
 MAX_PAGES = 1
 PAGE_SIZE = 45
 
+# Brand search configurations — text is the AJIO search keyword,
+# brand_filters are the :brand: facets applied in the query string.
+BRAND_CONFIGS = {
+    "avasa": {
+        "text": "avasa",
+        "brand_filters": ["AVAASA SET", "AVAASA MIX N' MATCH"],
+    },
+    "dnmx": {
+        "text": "dnmx",
+        "brand_filters": ["DNMX"],
+    },
+    "fig": {
+        "text": "fig",
+        "brand_filters": ["FIG"],
+    },
+    "rio": {
+        "text": "rio",
+        "brand_filters": ["RIO"],
+    },
+}
+
 
 def load_config():
     if not CONFIG_FILE.exists():
@@ -31,7 +52,22 @@ def load_config():
 # Scraping — HTML only
 # ---------------------------------------------------------------------------
 
-def scrape_ajio(brand: str, size: str = "") -> list[dict]:
+def scrape_ajio(brand: str, size: str = "", brand_filters: list[str] | None = None, text: str = "") -> list[dict]:
+    """Scrape AJIO for a specific brand.
+
+    Args:
+        brand: Human-readable brand name used only for logging.
+        size: Optional size filter (e.g. "XS", "S", "M" …).
+        brand_filters: List of AJIO :brand: facet values to include in the query.
+        text: The search keyword sent as the ``text`` URL parameter.
+    """
+    if brand_filters is None:
+        cfg = BRAND_CONFIGS.get(brand.lower(), {})
+        if not cfg:
+            log(f"[WARN] Brand '{brand}' not found in BRAND_CONFIGS — using brand name as filter")
+        brand_filters = cfg.get("brand_filters", [brand.upper()])
+        text = text or cfg.get("text", brand.lower())
+
     all_products = []
 
     with sync_playwright() as p:
@@ -65,18 +101,18 @@ def scrape_ajio(brand: str, size: str = "") -> list[dict]:
         page = context.new_page()
 
         for page_num in range(MAX_PAGES):
+            brand_facets = "".join(f":brand:{bf}" for bf in brand_filters)
             query = (
                 ":relevance"
-                ":brand:AVAASA SET"
-                ":brand:AVAASA MIX N' MATCH"
-                ":discountranges:70% and above"
+                + brand_facets
+                + ":discountranges:70% and above"
             )
             if size:
                 query += f":verticalsizegroupformat:{size}"
             url = (
                 f"https://www.ajio.com/search/"
                 f"?query={urllib.parse.quote(query)}"
-                f"&text=avasa"
+                f"&text={urllib.parse.quote(text)}"
                 f"&classifier=intent"
                 f"&pageNum={page_num}"
                 f"&pageSize={PAGE_SIZE}"
@@ -264,10 +300,10 @@ def load_known_urls() -> set[str]:
     return known
 
 
-def save_to_file(products: list[dict], min_pct: int):
+def save_to_file(products: list[dict], min_pct: int, label: str = "Avasa"):
     today = datetime.date.today().strftime("%d %b %Y")
     lines = [
-        f"AJIO Avasa Deals ({min_pct}%+ OFF) — {today}",
+        f"AJIO {label} Deals ({min_pct}%+ OFF) — {today}",
         f"Total: {len(products)} products",
         "=" * 60,
         "",
@@ -354,11 +390,11 @@ def format_product_message(p: dict, index: int, total: int, min_pct: int) -> str
     return "\n".join(lines)
 
 
-def send_telegram_all(token: str, chat_id: str, products: list[dict], min_pct: int):
+def send_telegram_all(token: str, chat_id: str, products: list[dict], min_pct: int, label: str = "Avasa"):
     today = datetime.date.today().strftime("%d %b %Y")
     total = len(products)
     # Header message
-    send_telegram_text(token, chat_id, f"*AJIO Avasa — {min_pct}%+ OFF* ({today})\n_{total} products found_")
+    send_telegram_text(token, chat_id, f"*AJIO {label} — {min_pct}%+ OFF* ({today})\n_{total} products found_")
     time.sleep(0.5)
 
     for i, p in enumerate(products, 1):
@@ -384,12 +420,29 @@ def log(msg: str):
 def main():
     cfg = load_config()
     min_pct = int(cfg.get("min_discount_pct", 80))
-    brand = cfg.get("brand", "avasa")
-
-    log(f"Starting AJIO {brand} scraper (min discount: {min_pct}%)")
-
     size = cfg.get("size", "")
-    all_products = scrape_ajio(brand, size)
+
+    # Brands to scrape — can be overridden via config.json "brands" key
+    brands_to_run = cfg.get("brands", list(BRAND_CONFIGS.keys()))
+    label = ", ".join(b.upper() for b in brands_to_run)
+
+    log(f"Starting AJIO scraper for brands: {label} (min discount: {min_pct}%)")
+
+    all_products = []
+    for brand in brands_to_run:
+        brand_cfg = BRAND_CONFIGS.get(brand.lower())
+        if brand_cfg is None:
+            log(f"[WARN] No config found for brand '{brand}', skipping")
+            continue
+        log(f"Scraping brand: {brand.upper()}")
+        products = scrape_ajio(
+            brand,
+            size,
+            brand_filters=brand_cfg["brand_filters"],
+            text=brand_cfg["text"],
+        )
+        log(f"Brand {brand.upper()}: {len(products)} products found")
+        all_products.extend(products)
 
     # Deduplicate by URL
     seen = set()
@@ -410,7 +463,7 @@ def main():
     log(f"New deals (not in previous run): {len(new_deals)}")
 
     # Always save full current list so next run can diff against it
-    save_to_file(deals, min_pct)
+    save_to_file(deals, min_pct, label)
 
     token = cfg.get("telegram_bot_token", "")
     chat_ids = cfg.get("telegram_chat_ids", [])
@@ -419,7 +472,7 @@ def main():
     elif token and "YOUR_BOT_TOKEN" not in token and chat_ids:
         for chat_id in chat_ids:
             log(f"Sending to chat_id {chat_id}...")
-            send_telegram_all(token, chat_id, new_deals, min_pct)
+            send_telegram_all(token, chat_id, new_deals, min_pct, label)
     else:
         log("Telegram not configured — skipping notification.")
 
