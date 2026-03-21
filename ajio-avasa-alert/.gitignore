@@ -1,0 +1,7 @@
+config.json
+venv/
+images/
+deals.txt
+debug_*.png
+__pycache__/
+*.pyc

@@ -1,0 +1,54 @@
+name: AJIO Avasa Deal Scraper
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # every 30 minutes
+  workflow_dispatch:          # allow manual trigger from GitHub UI
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      HEADLESS: "true"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Chrome via Playwright
+        run: playwright install chrome --with-deps
+
+      - name: Write config from secrets
+        run: |
+          cat > config.json <<EOF
+          {
+            "brand": "avasa",
+            "min_discount_pct": 70,
+            "size": "L",
+            "notify_if_no_results": false,
+            "telegram_bot_token": "${{ secrets.TELEGRAM_BOT_TOKEN }}",
+            "telegram_chat_ids": ${{ secrets.TELEGRAM_CHAT_IDS }}
+          }
+          EOF
+
+      - name: Run scraper
+        run: python scraper.py
+
+      - name: Upload deals.txt as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deals-${{ github.run_number }}
+          path: deals.txt
+          retention-days: 7
