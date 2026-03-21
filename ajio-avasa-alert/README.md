@@ -69,6 +69,9 @@ The workflow file is at `.github/workflows/scraper.yml` and runs every 30 minute
 
 The workflow writes `config.json` from secrets, runs the scraper, and commits changes to `deals.txt`.
 
+## Testing
+There are currently no automated tests or linting configured for this project.
+
 ## Troubleshooting
 - **`config.json` not found:** Ensure it exists in the same directory as `scraper.py`.
 - **Playwright errors:** Re-run `playwright install chrome --with-deps`.
