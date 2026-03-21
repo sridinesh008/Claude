@@ -22,12 +22,9 @@ jobs:
         with:
           python-version: "3.12"
           cache: "pip"
-          
-      - name: change directory
-        run: cd ajio-avasa-alert
 
       - name: Install Python dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r ajio-avasa-alert/requirements.txt
 
       - name: Install Chrome via Playwright
         run: playwright install chrome --with-deps
@@ -46,7 +43,7 @@ jobs:
           EOF
 
       - name: Run scraper
-        run: python scraper.py
+        run: python ajio-avasa-alert/scraper.py
 
       - name: Upload deals.txt as artifact
         if: always()
