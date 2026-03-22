@@ -2,7 +2,7 @@
 
 import pytest
 
-from scraper import BRAND_CONFIGS, extract_product_code, filter_products, format_product_message, save_to_file
+from scraper import BRAND_CONFIGS, extract_product_code, filter_men_clothing, filter_products, format_product_message, save_to_file
 
 
 def make_product(**overrides) -> dict:
@@ -20,24 +20,24 @@ def make_product(**overrides) -> dict:
 
 class TestFilterProducts:
     def test_keeps_products_at_threshold(self):
-        products = [make_product(discount=70)]
-        assert filter_products(products, min_pct=70) == products
+        products = [make_product(discount=75)]
+        assert filter_products(products, min_pct=75) == products
 
     def test_removes_products_below_threshold(self):
-        products = [make_product(discount=69)]
-        assert filter_products(products, min_pct=70) == []
+        products = [make_product(discount=74)]
+        assert filter_products(products, min_pct=75) == []
 
     def test_keeps_products_above_threshold(self):
         products = [make_product(discount=85)]
-        assert filter_products(products, min_pct=70) == products
+        assert filter_products(products, min_pct=75) == products
 
     def test_empty_list(self):
-        assert filter_products([], min_pct=70) == []
+        assert filter_products([], min_pct=75) == []
 
     def test_mixed_list(self):
         low = make_product(discount=50)
         high = make_product(discount=80)
-        result = filter_products([low, high], min_pct=70)
+        result = filter_products([low, high], min_pct=75)
         assert result == [high]
 
 
@@ -86,8 +86,11 @@ class TestBrandConfigs:
             assert brand in BRAND_CONFIGS, f"Brand '{brand}' missing from BRAND_CONFIGS"
 
     def test_expected_brands_included(self):
-        for brand in ("avasa", "dnmx", "fig", "rio"):
+        for brand in ("avasa", "fig", "rio"):
             assert brand in BRAND_CONFIGS, f"Expected brand '{brand}' not found in BRAND_CONFIGS"
+
+    def test_dnmx_removed(self):
+        assert "dnmx" not in BRAND_CONFIGS, "DNMX should have been removed from BRAND_CONFIGS"
 
     def test_each_brand_has_text_and_filters(self):
         for brand, cfg in BRAND_CONFIGS.items():
@@ -101,10 +104,6 @@ class TestBrandConfigs:
         assert "AVAASA SET" in filters
         assert "AVAASA MIX N' MATCH" in filters
 
-    def test_dnmx_config(self):
-        assert BRAND_CONFIGS["dnmx"]["text"] == "dnmx"
-        assert "DNMX" in BRAND_CONFIGS["dnmx"]["brand_filters"]
-
     def test_fig_config(self):
         assert BRAND_CONFIGS["fig"]["text"] == "fig"
         assert "FIG" in BRAND_CONFIGS["fig"]["brand_filters"]
@@ -114,19 +113,51 @@ class TestBrandConfigs:
         assert "RIO" in BRAND_CONFIGS["rio"]["brand_filters"]
 
 
+class TestFilterMenClothing:
+    def test_keeps_womens_product(self):
+        products = [make_product(name="AVAASA Women Kurta")]
+        assert filter_men_clothing(products) == products
+
+    def test_removes_mens_product_by_name(self):
+        products = [make_product(name="FIG Men T-Shirt")]
+        assert filter_men_clothing(products) == []
+
+    def test_removes_boys_product_by_name(self):
+        products = [make_product(name="RIO Boys Shorts")]
+        assert filter_men_clothing(products) == []
+
+    def test_removes_mens_product_by_url(self):
+        products = [make_product(url="https://www.ajio.com/avaasa-men-kurta/p/ABC123")]
+        assert filter_men_clothing(products) == []
+
+    def test_keeps_product_with_men_in_brand_suffix(self):
+        # "women" contains "men" — ensure we don't false-positive on "women"
+        products = [make_product(name="AVAASA Women Kurta", url="https://www.ajio.com/avaasa-women-kurta/p/XYZ")]
+        assert filter_men_clothing(products) == products
+
+    def test_empty_list(self):
+        assert filter_men_clothing([]) == []
+
+    def test_mixed_list(self):
+        womens = make_product(name="AVAASA Kurti", url="https://www.ajio.com/p/W1")
+        mens = make_product(name="Men's Shirt", url="https://www.ajio.com/p/M1")
+        result = filter_men_clothing([womens, mens])
+        assert result == [womens]
+
+
 class TestSaveToFile:
     def test_label_appears_in_output(self, tmp_path, monkeypatch):
         import scraper
         monkeypatch.setattr(scraper, "OUTPUT_FILE", tmp_path / "deals.txt")
         products = [make_product()]
-        save_to_file(products, min_pct=70, label="AVASA, DNMX, FIG, RIO")
+        save_to_file(products, min_pct=75, label="AVASA, FIG, RIO")
         content = (tmp_path / "deals.txt").read_text(encoding="utf-8")
-        assert "AVASA, DNMX, FIG, RIO" in content
+        assert "AVASA, FIG, RIO" in content
 
     def test_default_label(self, tmp_path, monkeypatch):
         import scraper
         monkeypatch.setattr(scraper, "OUTPUT_FILE", tmp_path / "deals.txt")
         products = [make_product()]
-        save_to_file(products, min_pct=70)
+        save_to_file(products, min_pct=75)
         content = (tmp_path / "deals.txt").read_text(encoding="utf-8")
         assert "Avasa" in content
