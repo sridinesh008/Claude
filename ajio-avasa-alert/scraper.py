@@ -27,10 +27,6 @@ BRAND_CONFIGS = {
         "text": "avasa",
         "brand_filters": ["AVAASA SET", "AVAASA MIX N' MATCH"],
     },
-    "dnmx": {
-        "text": "dnmx",
-        "brand_filters": ["DNMX"],
-    },
     "fig": {
         "text": "fig",
         "brand_filters": ["FIG"],
@@ -105,7 +101,7 @@ def scrape_ajio(brand: str, size: str = "", brand_filters: list[str] | None = No
             query = (
                 ":relevance"
                 + brand_facets
-                + ":discountranges:70% and above"
+                + ":discountranges:75% and above"
             )
             if size:
                 query += f":verticalsizegroupformat:{size}"
@@ -251,6 +247,19 @@ def parse_html(page) -> list[dict]:
 
 def filter_products(products: list[dict], min_pct: int) -> list[dict]:
     return [p for p in products if p.get("discount", 0) >= min_pct]
+
+
+MEN_KEYWORDS = re.compile(r"\bmen\b|\bboys?\b|\bmale\b|\bmens\b", re.IGNORECASE)
+
+
+def filter_men_clothing(products: list[dict]) -> list[dict]:
+    """Remove products whose name or URL indicates men's clothing."""
+    def is_womens(p: dict) -> bool:
+        return not (
+            MEN_KEYWORDS.search(p.get("name", ""))
+            or MEN_KEYWORDS.search(p.get("url", ""))
+        )
+    return [p for p in products if is_womens(p)]
 
 
 # ---------------------------------------------------------------------------
@@ -419,7 +428,7 @@ def log(msg: str):
 
 def main():
     cfg = load_config()
-    min_pct = int(cfg.get("min_discount_pct", 80))
+    min_pct = int(cfg.get("min_discount_pct", 75))
     size = cfg.get("size", "")
 
     # Brands to scrape — can be overridden via config.json "brands" key
@@ -453,6 +462,9 @@ def main():
             unique_products.append(p)
     all_products = unique_products
     log(f"Total products scraped (deduplicated): {len(all_products)}")
+
+    all_products = filter_men_clothing(all_products)
+    log(f"Total products after filtering men's clothing: {len(all_products)}")
 
     deals = filter_products(all_products, min_pct)
     log(f"Products with {min_pct}%+ discount: {len(deals)}")
