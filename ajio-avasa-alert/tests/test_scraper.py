@@ -2,7 +2,7 @@
 
 import pytest
 
-from scraper import BRAND_CONFIGS, extract_product_code, filter_men_clothing, filter_products, format_product_message, save_to_file
+from scraper import BRAND_CONFIGS, URL_DISCOUNT_RANGE, extract_product_code, filter_men_clothing, filter_products, format_product_message, save_to_file
 
 
 def make_product(**overrides) -> dict:
@@ -143,6 +143,12 @@ class TestFilterMenClothing:
         mens = make_product(name="Men's Shirt", url="https://www.ajio.com/p/M1")
         result = filter_men_clothing([womens, mens])
         assert result == [womens]
+
+
+class TestUrlDiscountRange:
+    def test_discount_range_is_70(self):
+        """URL query must use 70% to cast a wider net; post-fetch filter trims to 75%+."""
+        assert URL_DISCOUNT_RANGE == "70% and above"
 
 
 class TestSaveToFile:

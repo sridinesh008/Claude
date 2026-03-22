@@ -19,6 +19,9 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 CONFIG_FILE = pathlib.Path(__file__).parent / "config.json"
 MAX_PAGES = 1
 PAGE_SIZE = 45
+# Use a broader discount range in the URL to cast a wider net;
+# products below min_discount_pct are filtered out after scraping.
+URL_DISCOUNT_RANGE = "70% and above"
 
 # Brand search configurations — text is the AJIO search keyword,
 # brand_filters are the :brand: facets applied in the query string.
@@ -101,7 +104,7 @@ def scrape_ajio(brand: str, size: str = "", brand_filters: list[str] | None = No
             query = (
                 ":relevance"
                 + brand_facets
-                + ":discountranges:75% and above"
+                + f":discountranges:{URL_DISCOUNT_RANGE}"
             )
             if size:
                 query += f":verticalsizegroupformat:{size}"
